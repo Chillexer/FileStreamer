@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -25,7 +26,13 @@ namespace WebApi.Controllers
         public ActionResult GetFiles([FromBody] string path, [FromQuery]bool Recursive)
         {
             if (string.IsNullOrWhiteSpace(path))
-                return GetDrives();
+                return BadRequest("Path can't be null or empty");
+
+            if (!IsValidPath(path))
+                return BadRequest("Path is not correct format");
+
+            if (!Directory.Exists(path))
+                return NotFound("Directory not found");
 
             var response = GetFolderResponse(path);
             if (!Recursive)
@@ -91,7 +98,7 @@ namespace WebApi.Controllers
                     entry.ItemsInFolder = directoryInfo.GetFileSystemInfos().ToList().Count;
                 }
             }
-            catch (Exception e)
+            catch (Exception)
             {
                 entry.IsReadable = false;
                 entry.IsWriteable = false;
@@ -128,6 +135,30 @@ namespace WebApi.Controllers
             }
             return entry;
 
+        }
+        public static bool IsValidPath(string path)
+        {
+            string result;
+            return TryGetFullPath(path, out result);
+        }
+
+        public static bool TryGetFullPath(string path, out string result)
+        {
+            result = String.Empty;
+            if (String.IsNullOrWhiteSpace(path)) { return false; }
+            bool status = false;
+
+            try
+            {
+                result = Path.GetFullPath(path);
+                status = true;
+            }
+            catch (ArgumentException) { }
+            catch (SecurityException) { }
+            catch (NotSupportedException) { }
+            catch (PathTooLongException) { }
+
+            return status;
         }
     }
 }
